@@ -13,20 +13,22 @@ mongo_db = mongo_client["mydatabase"]
 mongo_collection = mongo_db["mycollection"]
 
 # PostgreSQL connection
-# postgres_conn = psycopg2.connect(
-#     dbname="mydatabase",
-#     user="postgres",
-#     password="password",
-#     host="postgres",
-#     port="5432"
-# )
-# postgres_cursor = postgres_conn.cursor()
+postgres_conn = psycopg2.connect(
+    dbname="mydatabase",
+    user="postgres",
+    password="password",
+    host="postgres",
+    port="5432"
+)
+postgres_cursor = postgres_conn.cursor()
 
 # Redis connection
 redis_client = redis.StrictRedis(host='redis', port=6379, db=0)
 
 # RabbitMQ connection
-rabbitmq_connection = pika.BlockingConnection(pika.ConnectionParameters(host='rabbitmq'))
+credentials = pika.PlainCredentials('guest', 'guest')
+parameters = pika.ConnectionParameters(host='rabbitmq', credentials=credentials)
+rabbitmq_connection = pika.BlockingConnection(parameters)
 rabbitmq_channel = rabbitmq_connection.channel()
 rabbitmq_channel.queue_declare(queue='myqueue')
 
