@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: ./backend
+    container_name: flask_app
+    volumes:
+      - ./backend:/app
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+      - postgres
+      - rabbitmq
+      - redis
+      - celery-worker
+      - flower  # Ensure dependency on Flower service
+    environment:
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://mongo:27017/mydatabase
+      - POSTGRES_URI=postgresql://postgres:password@postgres:5432/mydatabase
+      - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672/
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+  celery-worker:
+    build:
+      context: ./backend
+    container_name: celery_worker
+    volumes:
+      - ./backend:/app
+    environment:
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://mongo:27017/mydatabase
+      - POSTGRES_URI=postgresql://postgres:password@postgres:5432/mydatabase
+      - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672/
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    command: celery -A app.celery worker --loglevel=info
+    depends_on:
+      - redis  # Ensure Celery worker starts after Redis
+
+  flower:
+    image: mher/flower
+    container_name: flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    depends_on:
+      - redis  # Ensure Flower starts after Redis
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: react_app_dev
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: ["npm", "start"]
+
+  frontend-build:
+    build:
+      context: ./frontend
+      target: build
+    container_name: react_app_build
+    volumes:
+      - ./frontend/build:/app/build
+    command: ["npm", "run", "build"]
+
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+
+  postgres:
+    image: postgres:latest
+    container_name: postgresdb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  mongo-data:
+  postgres-data:
+  rabbitmq-data:
+  redis-data:
